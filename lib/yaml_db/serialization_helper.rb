@@ -5,6 +5,7 @@ module YamlDb
       attr_reader :extension
 
       def initialize(helper)
+        @config    = helper.config
         @dumper    = helper.dumper
         @loader    = helper.loader
         @extension = helper.extension
@@ -13,14 +14,14 @@ module YamlDb
       def dump(filename)
         disable_logger
         File.open(filename, "w") do |file|
-          @dumper.dump(file)
+          @dumper.dump(file, @config)
         end
         reenable_logger
       end
 
       def dump_to_dir(dirname)
         Dir.mkdir(dirname)
-        tables = @dumper.tables
+        tables = @dumper.tables(@config)
         tables.each do |table|
           File.open("#{dirname}/#{table}.#{@extension}", "w") do |io|
             @dumper.before_table(io, table)
@@ -148,8 +149,8 @@ module YamlDb
 
       end
 
-      def self.dump(io)
-        tables.each do |table|
+      def self.dump(io, config = nil)
+        tables(config).each do |table|
           before_table(io, table)
           dump_table(io, table)
           after_table(io, table)
@@ -160,8 +161,14 @@ module YamlDb
 
       end
 
-      def self.tables
-        ActiveRecord::Base.connection.tables.reject { |table| ['schema_info', 'schema_migrations'].include?(table) }
+      def self.tables(config = nil)
+        if config.present? && config['tables'].present?
+          whitelist = config['tables']
+          ActiveRecord::Base.connection.tables.find_all { |table| whitelist.include?(table) }
+        else
+          blacklist = %w(schema_info schema_migrations)
+          ActiveRecord::Base.connection.tables.reject { |table| blacklist.include?(table) }
+        end
       end
 
       def self.dump_table(io, table)

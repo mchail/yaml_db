@@ -17,6 +17,10 @@ module YamlDb
       Dump
     end
 
+    def self.config
+      Config.instance
+    end
+
     def self.extension
       "yml"
     end
@@ -31,6 +35,30 @@ module YamlDb
       yaml
     end
 
+  end
+
+  class Config
+    include Singleton
+
+    attr_reader :settings
+
+    def initialize
+      if File.exists?(path)
+        puts "Found yaml_db config!"
+        @settings = YAML.load(open(path))
+      else
+        puts "No config found at #{path}. Using defaults."
+        @settings = {}
+      end
+    end
+
+    delegate :[], to: :settings
+
+    private
+
+    def path
+      "#{Rails.root}/db/yaml_db.yml"
+    end
   end
 
   class Dump < SerializationHelper::Dump
